@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import PartForm from './components/PartForm';
+import ThemeToggle from './components/ThemeToggle';
 import './App.css';
 
 const defaultOperation = {
@@ -14,35 +15,40 @@ const defaultOperation = {
 
 function HomePage({ quotes, onNewQuote, clients, onViewQuote }) {
   return (
-    <div style={{ padding: 24, maxWidth: 900 }}>
-      <h1 style={{ marginBottom: 24, textAlign: 'center', letterSpacing: 1 }}>HMT-EZQ - Ravnsgaard Metal</h1>
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
-        <button onClick={onNewQuote} style={{ background: '#43a047', color: '#fff', fontWeight: 600 }}>New Quote</button>
+    <div>
+      <div className="header">
+        <h1>HMT-EZQ - Ravnsgaard Metal</h1>
+        <ThemeToggle />
       </div>
-      <h2 style={{ textAlign: 'center', color: '#374151' }}>Sent Quotes</h2>
-      <div className="card">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Quote #</th>
-              <th>Client</th>
-              <th>Sender</th>
-              <th>Date</th>
-              <th>View</th>
-            </tr>
-          </thead>
-          <tbody>
-            {quotes.map(q => (
-              <tr key={q.id} style={{ borderBottom: '1px solid #e3e6ea' }}>
-                <td>{q.quote_number}</td>
-                <td>{q.client}</td>
-                <td>{q.sender}</td>
-                <td>{q.created_at?.slice(0, 10)}</td>
-                <td><button onClick={() => onViewQuote(q.id)} style={{ background: '#1976d2', color: '#fff' }}>View</button></td>
+      <div style={{ padding: 24, maxWidth: 900 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
+          <button onClick={onNewQuote} style={{ background: '#43a047', color: '#fff', fontWeight: 600 }}>New Quote</button>
+        </div>
+        <h2 style={{ textAlign: 'center', color: '#374151' }}>Sent Quotes</h2>
+        <div className="card">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Quote #</th>
+                <th>Client</th>
+                <th>Sender</th>
+                <th>Date</th>
+                <th>View</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {quotes.map(q => (
+                <tr key={q.id} style={{ borderBottom: '1px solid #e3e6ea' }}>
+                  <td>{q.quote_number}</td>
+                  <td>{q.client}</td>
+                  <td>{q.sender}</td>
+                  <td>{q.created_at?.slice(0, 10)}</td>
+                  <td><button onClick={() => onViewQuote(q.id)} style={{ background: '#1976d2', color: '#fff' }}>View</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -74,66 +80,71 @@ function QuoteDetail({ quoteId, onBack }) {
   };
 
   return (
-    <div style={{ padding: 24, maxWidth: 900 }}>
-      <h1 style={{ marginBottom: 24 }}>HMT-EZQ - Ravnsgaard Metal</h1>
-      <button onClick={onBack} style={{ marginBottom: 16 }}>Back</button>
-      <h2>Quote #{quote.quote_number}</h2>
-      <table style={{ marginBottom: 16 }}>
-        <tbody>
-          <tr><td><b>Client</b></td><td>{quote.client}</td></tr>
-          <tr><td><b>Sender</b></td><td>{quote.sender}</td></tr>
-          <tr><td><b>Date</b></td><td>{quote.created_at?.slice(0, 10)}</td></tr>
-        </tbody>
-      </table>
-      <h3>Parts</h3>
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
-        <thead>
-          <tr>
-            <th>Part #</th><th>Name</th><th>Qty</th><th>Material Cost</th><th>Description</th><th>PDF</th><th>STEP</th><th>Hourly Rate</th><th>Unit Price</th>
-          </tr>
-        </thead>
-        <tbody>
-          {quote.parts.map((p, i) => (
-            <tr key={i}>
-              <td>{p.part_number}</td>
-              <td>{p.part_name}</td>
-              <td>{p.quantity}</td>
-              <td>{p.material_cost}</td>
-              <td>{p.description}</td>
-              <td>{p.pdf_file && <a href={p.pdf_file} target="_blank" rel="noopener noreferrer">PDF</a>}</td>
-              <td>{p.step_file && <a href={p.step_file} target="_blank" rel="noopener noreferrer">STEP</a>}</td>
-              <td>{p.hourly_rate || 1000}</td>
-              <td>{calcUnitPrice(p)} kr</td>
+    <div>
+      <div className="header">
+        <h1>HMT-EZQ - Ravnsgaard Metal</h1>
+        <ThemeToggle />
+      </div>
+      <div style={{ padding: 24, maxWidth: 900 }}>
+        <button onClick={onBack} style={{ marginBottom: 16 }}>Back</button>
+        <h2>Quote #{quote.quote_number}</h2>
+        <table style={{ marginBottom: 16 }}>
+          <tbody>
+            <tr><td><b>Client</b></td><td>{quote.client}</td></tr>
+            <tr><td><b>Sender</b></td><td>{quote.sender}</td></tr>
+            <tr><td><b>Date</b></td><td>{quote.created_at?.slice(0, 10)}</td></tr>
+          </tbody>
+        </table>
+        <h3>Parts</h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
+          <thead>
+            <tr>
+              <th>Part #</th><th>Name</th><th>Qty</th><th>Material Cost</th><th>Description</th><th>PDF</th><th>STEP</th><th>Hourly Rate</th><th>Unit Price</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      <h3>Operations</h3>
-      {quote.parts.map((p, i) => (
-        <div key={i} style={{ marginBottom: 16 }}>
-          <b>Part: {p.part_number} - {p.part_name}</b>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th>Process</th><th>Setup (hours)</th><th>Programming (hours)</th><th>First Part (hours)</th><th>Part Time (hours)</th><th>External Days</th><th>External Cost</th>
+          </thead>
+          <tbody>
+            {quote.parts.map((p, i) => (
+              <tr key={i}>
+                <td>{p.part_number}</td>
+                <td>{p.part_name}</td>
+                <td>{p.quantity}</td>
+                <td>{p.material_cost}</td>
+                <td>{p.description}</td>
+                <td>{p.pdf_file && <a href={p.pdf_file} target="_blank" rel="noopener noreferrer">PDF</a>}</td>
+                <td>{p.step_file && <a href={p.step_file} target="_blank" rel="noopener noreferrer">STEP</a>}</td>
+                <td>{p.hourly_rate || 1000}</td>
+                <td>{calcUnitPrice(p)} kr</td>
               </tr>
-            </thead>
-            <tbody>
-              {(p.operations || []).map((op, j) => (
-                <tr key={j}>
-                  <td>{op.process}</td>
-                  <td>{op.setup_time}</td>
-                  <td>{op.programming_time}</td>
-                  <td>{op.first_part_time}</td>
-                  <td>{op.part_time}</td>
-                  <td>{op.external_days}</td>
-                  <td>{op.external_cost}</td>
+            ))}
+          </tbody>
+        </table>
+        <h3>Operations</h3>
+        {quote.parts.map((p, i) => (
+          <div key={i} style={{ marginBottom: 16 }}>
+            <b>Part: {p.part_number} - {p.part_name}</b>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th>Process</th><th>Setup (hours)</th><th>Programming (hours)</th><th>First Part (hours)</th><th>Part Time (hours)</th><th>External Days</th><th>External Cost</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ))}
+              </thead>
+              <tbody>
+                {(p.operations || []).map((op, j) => (
+                  <tr key={j}>
+                    <td>{op.process}</td>
+                    <td>{op.setup_time}</td>
+                    <td>{op.programming_time}</td>
+                    <td>{op.first_part_time}</td>
+                    <td>{op.part_time}</td>
+                    <td>{op.external_days}</td>
+                    <td>{op.external_cost}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -326,53 +337,81 @@ function QuoteForm({ clients, senders, onBack }) {
   };
 
   return (
-    <div style={{ padding: 24, maxWidth: 900 }}>
-      <h1 style={{ marginBottom: 24, textAlign: 'center', letterSpacing: 1 }}>HMT-EZQ - Ravnsgaard Metal</h1>
-      <button onClick={onBack} style={{ marginBottom: 16, background: '#f44336', color: '#fff' }}>Back</button>
-      <h2 style={{ textAlign: 'center', color: '#374151' }}>New Quote</h2>
-      <div className="card" style={{ marginBottom: 24 }}>
-        <div style={{ marginBottom: 16 }}>
-          <input name="quote_number" value={quote.quote_number} readOnly placeholder="Quote Number" style={{ width: 120, marginRight: 8 }} />
-          <div className="form-row">
-            <div className="form-col">
-              <label>Client:</label>
-              <select value={quote.client || ''} onChange={handleClientSelect}>
-                <option value="">Select Client</option>
-                {clientList.map(c => (
-                  <option key={c.id} value={c.id}>{c.company_name}</option>
-                ))}
-              </select>
-              <button type="button" onClick={() => setShowClientForm(true)}>Add New Client</button>
+    <div>
+      <div className="header">
+        <h1>HMT-EZQ - Ravnsgaard Metal</h1>
+        <ThemeToggle />
+      </div>
+      <div style={{ padding: '0 1.5rem' }}>
+        <button onClick={onBack} style={{ marginBottom: 16, background: '#f44336', color: '#fff' }}>Back</button>
+        <div className="quote-info">
+          <h2>New Quote</h2>
+          <div className="quote-grid">
+            <div>
+              <label>Quote Number</label>
+              <input 
+                name="quote_number" 
+                value={quote.quote_number} 
+                readOnly 
+                style={{ width: '100%' }} 
+              />
             </div>
-
-            <div className="form-col">
-              <label>Sender:</label>
-              <select value={quote.sender || ''} onChange={handleSenderSelect}>
-                <option value="">Select Sender</option>
-                {senderList.map(s => (
-                  <option key={s.id} value={s.id}>{s.company_name}</option>
-                ))}
-              </select>
-              <button type="button" onClick={() => setShowSenderForm(true)}>Add New Sender</button>
+            <div>
+              <label>Client</label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <select value={quote.client || ''} onChange={handleClientSelect} style={{ flex: 1 }}>
+                  <option value="">Select Client</option>
+                  {clientList.map(c => (
+                    <option key={c.id} value={c.id}>{c.company_name}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => setShowClientForm(true)}>+</button>
+              </div>
+            </div>
+            <div>
+              <label>Sender</label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <select value={quote.sender || ''} onChange={handleSenderSelect} style={{ flex: 1 }}>
+                  <option value="">Select Sender</option>
+                  {senderList.map(s => (
+                    <option key={s.id} value={s.id}>{s.company_name}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => setShowSenderForm(true)}>+</button>
+              </div>
             </div>
           </div>
         </div>
-        <h3 style={{ color: '#1976d2', marginTop: 24 }}>Parts</h3>
-        {quote.parts.map((part, idx) => (
-          <PartForm
-            key={idx}
-            part={part}
-            onChange={(p) => handlePartChange(idx, p)}
-            onRemove={() => handleRemovePart(idx)}
-            onFileUpload={handleFileUpload}
-          />
-        ))}
-        <div style={{ display: 'flex', justifyContent: 'center', margin: '18px 0' }}>
-          <button type="button" onClick={handleAddPart} style={{ background: '#43a047', color: '#fff', fontWeight: 600 }}>Add Part</button>
-        </div>
-        <div style={{ marginTop: 24, textAlign: 'center' }}>
-          <button type="button" style={{ background: '#1976d2', color: '#fff', marginRight: 8 }} onClick={handleSaveQuote}>Save Quote</button>
-          <pre style={{ background: '#f4f7fb', borderRadius: 8, padding: 12, marginTop: 16, fontSize: 13, color: '#374151', overflowX: 'auto' }}>{JSON.stringify(quote, null, 2)}</pre>
+
+        <div className="parts-section">
+          <h2>Parts</h2>
+          <div className="parts-grid">
+            {quote.parts.map((part, idx) => (
+              <PartForm
+                key={idx}
+                part={part}
+                onChange={(p) => handlePartChange(idx, p)}
+                onRemove={() => handleRemovePart(idx)}
+                onFileUpload={handleFileUpload}
+              />
+            ))}
+          </div>
+          <button 
+            type="button" 
+            onClick={handleAddPart}
+            className="add-part-button"
+          >
+            + Add Part
+          </button>
+          <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+            <button 
+              type="button" 
+              style={{ background: '#1976d2', color: '#fff', padding: '0.75rem 2rem' }} 
+              onClick={handleSaveQuote}
+            >
+              Save Quote
+            </button>
+          </div>
         </div>
       </div>
 

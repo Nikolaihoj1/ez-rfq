@@ -79,65 +79,111 @@ export default function PartForm({ part, onChange, onRemove, onFileUpload }) {
 
   return (
     <div className="part-card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h3 style={{ margin: 0 }}>Part</h3>
-        <button type="button" onClick={onRemove} style={{ background: '#f44336', color: '#fff', marginTop: 0 }}>Remove Part</button>
+      <div className="part-header">
+        <h3>Part Details</h3>
+        <button 
+          type="button" 
+          onClick={onRemove} 
+          style={{ background: '#f44336', color: '#fff', marginTop: 0 }}
+        >
+          Remove Part
+        </button>
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 32, rowGap: 0, marginBottom: 12 }}>
-        <div style={{ flex: 1, minWidth: 220, marginBottom: 18 }}>
-          <label>Part Number</label>
-          <input name="part_number" value={p.part_number} onChange={handleChange} placeholder="Part Number" />
+
+      <div className="part-content">
+        <div className="part-grid">
+          <div className="part-field">
+            <label>Part Number</label>
+            <input 
+              name="part_number" 
+              value={p.part_number} 
+              onChange={handleChange} 
+              placeholder="Part Number" 
+            />
+          </div>
+          <div className="part-field">
+            <label>Part Name</label>
+            <input 
+              name="part_name" 
+              value={p.part_name} 
+              onChange={handleChange} 
+              placeholder="Part Name" 
+            />
+          </div>
+          <div className="part-field">
+            <label>Quantity</label>
+            <input 
+              name="quantity" 
+              type="number" 
+              min="1" 
+              value={p.quantity} 
+              onChange={handleChange} 
+              placeholder="Qty" 
+            />
+          </div>
+          <div className="part-field">
+            <label>Material Cost</label>
+            <input 
+              name="material_cost" 
+              type="number" 
+              min="0" 
+              value={p.material_cost} 
+              onChange={handleChange} 
+              placeholder="Material Cost" 
+            />
+          </div>
         </div>
-        <div style={{ flex: 1, minWidth: 220, marginBottom: 18 }}>
-          <label>Part Name</label>
-          <input name="part_name" value={p.part_name} onChange={handleChange} placeholder="Part Name" />
-        </div>
-        <div style={{ flex: 1, minWidth: 120, marginBottom: 18 }}>
-          <label>Quantity</label>
-          <input name="quantity" type="number" min="1" value={p.quantity} onChange={handleChange} placeholder="Qty" />
-        </div>
-        <div style={{ flex: 1, minWidth: 160, marginBottom: 18 }}>
-          <label>Material Cost</label>
-          <input name="material_cost" type="number" min="0" value={p.material_cost} onChange={handleChange} placeholder="Material Cost" />
-        </div>
-        <div style={{ flex: 2, minWidth: 220, marginBottom: 18 }}>
+
+        <div className="part-field" style={{ marginBottom: '1rem' }}>
           <label>Description</label>
-          <input name="description" value={p.description} onChange={handleChange} placeholder="Description" />
-        </div>
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 32, rowGap: 0, marginBottom: 12 }}>
-        <div style={{ flex: 1, minWidth: 220, marginBottom: 18 }}>
-          <label>PDF File (optional)</label>
-          <FileUpload label="PDF" accept="application/pdf" onUpload={(file, formData) => onFileUpload(file, formData, 'pdf_file', p, onChange)} existingFileUrl={p.pdf_file} />
-        </div>
-        <div style={{ flex: 1, minWidth: 220, marginBottom: 18 }}>
-          <label>STEP File (optional)</label>
-          <FileUpload label="STEP" accept=".step,.stp" onUpload={(file, formData) => onFileUpload(file, formData, 'step_file', p, onChange)} existingFileUrl={p.step_file} />
-        </div>
-        <div style={{ flex: 1, minWidth: 180, alignSelf: 'flex-end', marginBottom: 18 }}>
-          <label>Hourly Rate (kr)</label>
-          <input
-            type="number"
-            min="0"
-            step="1"
-            value={hourlyRate}
-            onChange={e => setHourlyRate(e.target.value)}
-            style={{ width: 100 }}
+          <input 
+            name="description" 
+            value={p.description} 
+            onChange={handleChange} 
+            placeholder="Description" 
           />
         </div>
-        <div style={{ flex: 1, minWidth: 180, alignSelf: 'flex-end', marginBottom: 18 }}>
-          <label>Unit Price</label>
-          <div style={{ fontWeight: 600, fontSize: 18, color: '#1976d2', marginTop: 4 }}>{calcUnitPrice()} kr</div>
-        </div>
-      </div>
-      <div style={{ marginTop: 18 }}>
-        <b style={{ fontSize: 16 }}>Operations:</b>
-        {(p.operations || []).map((op, idx) => (
-          <div className="operation-card" key={idx}>
-            <OperationForm operation={op} onChange={(o) => handleOperationChange(idx, o)} onRemove={() => handleRemoveOperation(idx)} />
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+          <div>
+            <label>PDF File</label>
+            <FileUpload 
+              label="PDF" 
+              accept="application/pdf" 
+              onUpload={(file, formData) => onFileUpload(file, formData, 'pdf_file', p, onChange)} 
+              existingFileUrl={p.pdf_file} 
+            />
           </div>
-        ))}
-        <button type="button" onClick={handleAddOperation} style={{ background: '#43a047', color: '#fff', marginTop: 8 }}>Add Operation</button>
+          <div>
+            <label>STEP File</label>
+            <FileUpload 
+              label="STEP" 
+              accept=".step,.stp" 
+              onUpload={(file, formData) => onFileUpload(file, formData, 'step_file', p, onChange)} 
+              existingFileUrl={p.step_file} 
+            />
+          </div>
+        </div>
+
+        <div className="operations-section">
+          <h4 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>Operations</h4>
+          {(p.operations || []).map((op, idx) => (
+            <div className="operation-card" key={idx}>
+              <OperationForm 
+                operation={op} 
+                onChange={(o) => handleOperationChange(idx, o)} 
+                onRemove={() => handleRemoveOperation(idx)} 
+              />
+            </div>
+          ))}
+          <button 
+            type="button" 
+            onClick={handleAddOperation} 
+            style={{ background: '#43a047', color: '#fff', marginTop: '0.5rem' }}
+          >
+            Add Operation
+          </button>
+        </div>
       </div>
     </div>
   );
