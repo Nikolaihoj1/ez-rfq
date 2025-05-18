@@ -57,10 +57,12 @@ class Quote(Base):
     __tablename__ = "quotes"
     id = Column(Integer, primary_key=True, index=True)
     quote_number = Column(String, unique=True, index=True)  # Added quote number
-    client = Column(String)
-    sender = Column(String)
+    client_id = Column(Integer, ForeignKey("clients.id"))
+    sender_id = Column(Integer, ForeignKey("senders.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     parts = relationship("Part", backref="quote")
+    client = relationship("Client")
+    sender = relationship("Sender")
 
 class Client(Base):
     __tablename__ = "clients"
@@ -170,9 +172,19 @@ def list_quotes(db: Session = Depends(get_db)):
         {
             "id": q.id,
             "quote_number": q.quote_number,
-            "client": q.client,
-            "sender": q.sender,
-            "created_at": q.created_at,
+            "client": {
+                "id": q.client.id,
+                "company_name": q.client.company_name,
+                "company_address": q.client.company_address,
+                "company_email": q.client.company_email,
+            } if q.client else None,
+            "sender": {
+                "id": q.sender.id,
+                "company_name": q.sender.company_name,
+                "company_address": q.sender.company_address,
+                "company_email": q.sender.company_email,
+            } if q.sender else None,
+            "created_at": q.created_at.isoformat() if q.created_at else None,
         }
         for q in quotes
     ]
@@ -220,18 +232,36 @@ def add_sender(sender: dict = Body(...), db: Session = Depends(get_db)):
 def create_quote(quote: dict = Body(...), db: Session = Depends(get_db)):
     try:
         quote_number = quote.get("quote_number")
-        client = quote.get("client")
-        sender = quote.get("sender")
+        client_id = quote.get("client")
+        sender_id = quote.get("sender")
         parts = quote.get("parts", [])
-        if not quote_number or not client or not sender:
-            raise HTTPException(status_code=400, detail="Missing required quote fields.")
-        db_quote = Quote(quote_number=quote_number, client=client, sender=sender)
+        
+        print(f"Received quote data - client_id: {client_id}, sender_id: {sender_id}")
+        
+        if not quote_number or not client_id or not sender_id:
+            raise HTTPException(status_code=400, detail=f"Missing required quote fields. quote_number: {quote_number}, client_id: {client_id}, sender_id: {sender_id}")
+            
+        # Verify client and sender exist
+        client = db.query(Client).filter(Client.id == client_id).first()
+        sender = db.query(Sender).filter(Sender.id == sender_id).first()
+        
+        print(f"Found client: {client is not None}, Found sender: {sender is not None}")
+        
+        if not client or not sender:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid client or sender ID. Client ID {client_id} {'found' if client else 'not found'}, Sender ID {sender_id} {'found' if sender else 'not found'}"
+            )
+            
+        db_quote = Quote(quote_number=quote_number, client_id=client_id, sender_id=sender_id)
         db.add(db_quote)
         db.commit()
         db.refresh(db_quote)
+        
         for part in parts:
             if not part.get("part_number") or not part.get("part_name"):
                 raise HTTPException(status_code=400, detail="Each part must have part_number and part_name.")
+            
             db_part = Part(
                 part_number=part.get("part_number"),
                 part_name=part.get("part_name"),
@@ -245,10 +275,11 @@ def create_quote(quote: dict = Body(...), db: Session = Depends(get_db)):
             db.add(db_part)
             db.commit()
             db.refresh(db_part)
+            
             for op in part.get("operations", []):
-                # Skip empty/invalid operations
                 if not op.get("process"):
                     continue
+                    
                 db_op = Operation(
                     process=op.get("process"),
                     setup_time=op.get("setup_time") or 0,
@@ -260,6 +291,7 @@ def create_quote(quote: dict = Body(...), db: Session = Depends(get_db)):
                     part_id=db_part.id
                 )
                 db.add(db_op)
+                
         db.commit()
         return {"id": db_quote.id, "quote_number": db_quote.quote_number}
     except Exception as e:
@@ -299,8 +331,18 @@ def get_quote_detail(quote_id: int, db: Session = Depends(get_db)):
     return {
         "id": q.id,
         "quote_number": q.quote_number,
-        "client": q.client,
-        "sender": q.sender,
+        "client": {
+            "id": q.client.id,
+            "company_name": q.client.company_name,
+            "company_address": q.client.company_address,
+            "company_email": q.client.company_email,
+        } if q.client else None,
+        "sender": {
+            "id": q.sender.id,
+            "company_name": q.sender.company_name,
+            "company_address": q.sender.company_address,
+            "company_email": q.sender.company_email,
+        } if q.sender else None,
         "created_at": q.created_at.isoformat() if q.created_at else None,
         "parts": part_list
     }
