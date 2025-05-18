@@ -35,8 +35,8 @@ function HomePage({ quotes, onNewQuote, clients, onViewQuote }) {
             {quotes.map(q => (
               <tr key={q.id} style={{ borderBottom: '1px solid #e3e6ea' }}>
                 <td>{q.quote_number}</td>
-                <td>{q.client}</td>
-                <td>{q.sender}</td>
+                <td>{q.client?.company_name || 'N/A'}</td>
+                <td>{q.sender?.company_name || 'N/A'}</td>
                 <td>{q.created_at?.slice(0, 10)}</td>
                 <td><button onClick={() => onViewQuote(q.id)} style={{ background: '#1976d2', color: '#fff' }}>View</button></td>
               </tr>
@@ -80,8 +80,8 @@ function QuoteDetail({ quoteId, onBack }) {
       <h2>Quote #{quote.quote_number}</h2>
       <table style={{ marginBottom: 16 }}>
         <tbody>
-          <tr><td><b>Client</b></td><td>{quote.client}</td></tr>
-          <tr><td><b>Sender</b></td><td>{quote.sender}</td></tr>
+          <tr><td><b>Client</b></td><td>{quote.client?.company_name || 'N/A'}</td></tr>
+          <tr><td><b>Sender</b></td><td>{quote.sender?.company_name || 'N/A'}</td></tr>
           <tr><td><b>Date</b></td><td>{quote.created_at?.slice(0, 10)}</td></tr>
         </tbody>
       </table>
@@ -163,14 +163,12 @@ function QuoteForm({ clients, senders, onBack }) {
 
   const handleClientSelect = (e) => {
     const clientId = e.target.value;
-    const client = clientList.find(c => c.id === parseInt(clientId));
-    setQuote(prev => ({ ...prev, client: client ? client.company_name : '' }));
+    setQuote(prev => ({ ...prev, client: clientId ? parseInt(clientId) : null }));
   };
 
   const handleSenderSelect = (e) => {
     const senderId = e.target.value;
-    const sender = senderList.find(s => s.id === parseInt(senderId));
-    setQuote(prev => ({ ...prev, sender: sender ? sender.company_name : '' }));
+    setQuote(prev => ({ ...prev, sender: senderId ? parseInt(senderId) : null }));
   };
 
   const handleAddClient = async (e) => {
