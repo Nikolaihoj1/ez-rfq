@@ -5,22 +5,34 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
 import os
+import logging
 from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, DateTime, Text
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship, Session
 from datetime import datetime
 import shutil
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 app = FastAPI()
 
-# Allow CORS for frontend dev
+# Configure CORS with logging
+origins = [
+    "http://localhost:5173",    # Vite dev server
+    "http://localhost:4173",    # Vite preview
+    "http://localhost:3000",    # Alternative port
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Database setup
 DATABASE_URL = "sqlite:///./quotes.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -57,12 +69,12 @@ class Quote(Base):
     __tablename__ = "quotes"
     id = Column(Integer, primary_key=True, index=True)
     quote_number = Column(String, unique=True, index=True)  # Added quote number
-    client_id = Column(Integer, ForeignKey("clients.id"))
-    sender_id = Column(Integer, ForeignKey("senders.id"))
+    client = Column(Integer, ForeignKey("clients.id"))
+    sender = Column(Integer, ForeignKey("senders.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     parts = relationship("Part", backref="quote")
-    client = relationship("Client")
-    sender = relationship("Sender")
+    client_rel = relationship("Client", foreign_keys=[client])
+    sender_rel = relationship("Sender", foreign_keys=[sender])
 
 class Client(Base):
     __tablename__ = "clients"
@@ -70,6 +82,8 @@ class Client(Base):
     company_name = Column(String, unique=True, index=True)
     company_address = Column(String)
     company_email = Column(String)
+    town = Column(String, nullable=True)
+    contact = Column(String, nullable=True)
 
 class Sender(Base):
     __tablename__ = "senders"
@@ -77,6 +91,8 @@ class Sender(Base):
     company_name = Column(String, unique=True, index=True)
     company_address = Column(String)
     company_email = Column(String)
+    town = Column(String, nullable=True)
+    contact = Column(String, nullable=True)
 
 Base.metadata.create_all(bind=engine)
 
@@ -85,13 +101,25 @@ from sqlalchemy.exc import IntegrityError
 with SessionLocal() as db:
     if not db.query(Client).first():
         try:
-            db.add(Client(company_name="Placeholder Client", company_address="123 Client St", company_email="client@example.com"))
+            db.add(Client(
+                company_name="Placeholder Client",
+                company_address="123 Client St",
+                company_email="client@example.com",
+                town="Client Town",
+                contact="John Doe"
+            ))
             db.commit()
         except IntegrityError:
             db.rollback()
     if not db.query(Sender).first():
         try:
-            db.add(Sender(company_name="Placeholder Sender", company_address="456 Sender Ave", company_email="sender@example.com"))
+            db.add(Sender(
+                company_name="Placeholder Sender",
+                company_address="456 Sender Ave",
+                company_email="sender@example.com",
+                town="Sender Town",
+                contact="Jane Smith"
+            ))
             db.commit()
         except IntegrityError:
             db.rollback()
@@ -144,6 +172,8 @@ def get_clients(db: Session = Depends(get_db)):
             "company_name": c.company_name,
             "company_address": c.company_address,
             "company_email": c.company_email,
+            "town": c.town,
+            "contact": c.contact,
         }
         for c in clients
     ]
@@ -153,7 +183,9 @@ def add_client(client: dict = Body(...), db: Session = Depends(get_db)):
     c = Client(
         company_name=client.get('company_name'),
         company_address=client.get('company_address'),
-        company_email=client.get('company_email')
+        company_email=client.get('company_email'),
+        town=client.get('town'),
+        contact=client.get('contact')
     )
     db.add(c)
     db.commit()
@@ -163,40 +195,50 @@ def add_client(client: dict = Body(...), db: Session = Depends(get_db)):
         "company_name": c.company_name,
         "company_address": c.company_address,
         "company_email": c.company_email,
+        "town": c.town,
+        "contact": c.contact,
     }
 
 @app.get("/quotes/")
 def list_quotes(db: Session = Depends(get_db)):
-    quotes = db.query(Quote).all()
+    quotes = (
+        db.query(Quote, Client.company_name, Sender.company_name)
+        .join(Client, Quote.client == Client.id)
+        .join(Sender, Quote.sender == Sender.id)
+        .all()
+    )
     return [
         {
-            "id": q.id,
-            "quote_number": q.quote_number,
-            "client": {
-                "id": q.client.id,
-                "company_name": q.client.company_name,
-                "company_address": q.client.company_address,
-                "company_email": q.client.company_email,
-            } if q.client else None,
-            "sender": {
-                "id": q.sender.id,
-                "company_name": q.sender.company_name,
-                "company_address": q.sender.company_address,
-                "company_email": q.sender.company_email,
-            } if q.sender else None,
-            "created_at": q.created_at.isoformat() if q.created_at else None,
+            "id": q[0].id,
+            "quote_number": q[0].quote_number,
+            "client": q[1],  # Client company name
+            "sender": q[2],  # Sender company name
+            "created_at": q[0].created_at,
         }
         for q in quotes
     ]
 
 @app.post("/quotes/next-number/")
 def get_next_quote_number(db: Session = Depends(get_db)):
-    last_quote = db.query(Quote).order_by(Quote.id.desc()).first()
-    if last_quote and last_quote.quote_number.isdigit():
-        next_number = str(int(last_quote.quote_number) + 1)
-    else:
-        next_number = "1"
-    return {"next_quote_number": next_number}
+    try:
+        logger.info("Fetching next quote number")
+        last_quote = db.query(Quote).order_by(Quote.id.desc()).first()
+        
+        if not last_quote:
+            logger.info("No quotes found, starting with 1000")
+            return {"next_quote_number": "1000"}
+            
+        if last_quote.quote_number and last_quote.quote_number.isdigit():
+            next_number = str(int(last_quote.quote_number) + 1)
+            logger.info(f"Generated next number: {next_number}")
+        else:
+            logger.info("Invalid last quote number, starting with 1000")
+            next_number = "1000"
+            
+        return {"next_quote_number": next_number}
+    except Exception as e:
+        logger.error(f"Error generating quote number: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error generating quote number: {str(e)}")
 
 @app.get("/senders/")
 def get_senders(db: Session = Depends(get_db)):
@@ -207,6 +249,8 @@ def get_senders(db: Session = Depends(get_db)):
             "company_name": s.company_name,
             "company_address": s.company_address,
             "company_email": s.company_email,
+            "town": s.town,
+            "contact": s.contact,
         }
         for s in senders
     ]
@@ -216,7 +260,9 @@ def add_sender(sender: dict = Body(...), db: Session = Depends(get_db)):
     s = Sender(
         company_name=sender.get('company_name'),
         company_address=sender.get('company_address'),
-        company_email=sender.get('company_email')
+        company_email=sender.get('company_email'),
+        town=sender.get('town'),
+        contact=sender.get('contact')
     )
     db.add(s)
     db.commit()
@@ -226,42 +272,26 @@ def add_sender(sender: dict = Body(...), db: Session = Depends(get_db)):
         "company_name": s.company_name,
         "company_address": s.company_address,
         "company_email": s.company_email,
+        "town": s.town,
+        "contact": s.contact,
     }
 
 @app.post("/quotes/")
 def create_quote(quote: dict = Body(...), db: Session = Depends(get_db)):
     try:
         quote_number = quote.get("quote_number")
-        client_id = quote.get("client")
-        sender_id = quote.get("sender")
+        client = quote.get("client")
+        sender = quote.get("sender")
         parts = quote.get("parts", [])
-        
-        print(f"Received quote data - client_id: {client_id}, sender_id: {sender_id}")
-        
-        if not quote_number or not client_id or not sender_id:
-            raise HTTPException(status_code=400, detail=f"Missing required quote fields. quote_number: {quote_number}, client_id: {client_id}, sender_id: {sender_id}")
-            
-        # Verify client and sender exist
-        client = db.query(Client).filter(Client.id == client_id).first()
-        sender = db.query(Sender).filter(Sender.id == sender_id).first()
-        
-        print(f"Found client: {client is not None}, Found sender: {sender is not None}")
-        
-        if not client or not sender:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Invalid client or sender ID. Client ID {client_id} {'found' if client else 'not found'}, Sender ID {sender_id} {'found' if sender else 'not found'}"
-            )
-            
-        db_quote = Quote(quote_number=quote_number, client_id=client_id, sender_id=sender_id)
+        if not quote_number or not client or not sender:
+            raise HTTPException(status_code=400, detail="Missing required quote fields.")
+        db_quote = Quote(quote_number=quote_number, client=client, sender=sender)
         db.add(db_quote)
         db.commit()
         db.refresh(db_quote)
-        
         for part in parts:
             if not part.get("part_number") or not part.get("part_name"):
                 raise HTTPException(status_code=400, detail="Each part must have part_number and part_name.")
-            
             db_part = Part(
                 part_number=part.get("part_number"),
                 part_name=part.get("part_name"),
@@ -275,11 +305,10 @@ def create_quote(quote: dict = Body(...), db: Session = Depends(get_db)):
             db.add(db_part)
             db.commit()
             db.refresh(db_part)
-            
             for op in part.get("operations", []):
+                # Skip empty/invalid operations
                 if not op.get("process"):
                     continue
-                    
                 db_op = Operation(
                     process=op.get("process"),
                     setup_time=op.get("setup_time") or 0,
@@ -291,20 +320,25 @@ def create_quote(quote: dict = Body(...), db: Session = Depends(get_db)):
                     part_id=db_part.id
                 )
                 db.add(db_op)
-                
         db.commit()
         return {"id": db_quote.id, "quote_number": db_quote.quote_number}
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error saving quote: {str(e)}")
+        logger.error(f"Error saving quote: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error. Please try again later.")
 
 @app.get("/quotes/{quote_id}")
 def get_quote_detail(quote_id: int, db: Session = Depends(get_db)):
-    q = db.query(Quote).filter(Quote.id == quote_id).first()
+    q = (
+        db.query(Quote, Client.company_name, Sender.company_name)
+        .join(Client, Quote.client == Client.id)
+        .join(Sender, Quote.sender == Sender.id)
+        .filter(Quote.id == quote_id)
+        .first()
+    )
     if not q:
         raise HTTPException(status_code=404, detail="Quote not found")
-    parts = db.query(Part).filter(Part.quote_id == q.id).all()
+        
+    parts = db.query(Part).filter(Part.quote_id == q[0].id).all()
     part_list = []
     for p in parts:
         ops = db.query(Operation).filter(Operation.part_id == p.id).all()
@@ -329,21 +363,11 @@ def get_quote_detail(quote_id: int, db: Session = Depends(get_db)):
             ]
         })
     return {
-        "id": q.id,
-        "quote_number": q.quote_number,
-        "client": {
-            "id": q.client.id,
-            "company_name": q.client.company_name,
-            "company_address": q.client.company_address,
-            "company_email": q.client.company_email,
-        } if q.client else None,
-        "sender": {
-            "id": q.sender.id,
-            "company_name": q.sender.company_name,
-            "company_address": q.sender.company_address,
-            "company_email": q.sender.company_email,
-        } if q.sender else None,
-        "created_at": q.created_at.isoformat() if q.created_at else None,
+        "id": q[0].id,
+        "quote_number": q[0].quote_number,
+        "client": q[1],  # Client company name
+        "sender": q[2],  # Sender company name
+        "created_at": q[0].created_at.isoformat() if q[0].created_at else None,
         "parts": part_list
     }
 

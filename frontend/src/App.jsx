@@ -35,8 +35,8 @@ function HomePage({ quotes, onNewQuote, clients, onViewQuote }) {
             {quotes.map(q => (
               <tr key={q.id} style={{ borderBottom: '1px solid #e3e6ea' }}>
                 <td>{q.quote_number}</td>
-                <td>{q.client?.company_name || 'N/A'}</td>
-                <td>{q.sender?.company_name || 'N/A'}</td>
+                <td>{q.client}</td>
+                <td>{q.sender}</td>
                 <td>{q.created_at?.slice(0, 10)}</td>
                 <td><button onClick={() => onViewQuote(q.id)} style={{ background: '#1976d2', color: '#fff' }}>View</button></td>
               </tr>
@@ -80,8 +80,8 @@ function QuoteDetail({ quoteId, onBack }) {
       <h2>Quote #{quote.quote_number}</h2>
       <table style={{ marginBottom: 16 }}>
         <tbody>
-          <tr><td><b>Client</b></td><td>{quote.client?.company_name || 'N/A'}</td></tr>
-          <tr><td><b>Sender</b></td><td>{quote.sender?.company_name || 'N/A'}</td></tr>
+          <tr><td><b>Client</b></td><td>{quote.client}</td></tr>
+          <tr><td><b>Sender</b></td><td>{quote.sender}</td></tr>
           <tr><td><b>Date</b></td><td>{quote.created_at?.slice(0, 10)}</td></tr>
         </tbody>
       </table>
@@ -141,14 +141,26 @@ function QuoteDetail({ quoteId, onBack }) {
 function QuoteForm({ clients, senders, onBack }) {
   const [quote, setQuote] = useState({
     quote_number: '',
-    client: '',
-    sender: '',
+    client: null,
+    sender: null,
     parts: [],
   });
   const [showClientForm, setShowClientForm] = useState(false);
   const [showSenderForm, setShowSenderForm] = useState(false);
-  const [newClient, setNewClient] = useState({ company_name: '', company_address: '', company_email: '' });
-  const [newSender, setNewSender] = useState({ company_name: '', company_address: '', company_email: '' });
+  const [newClient, setNewClient] = useState({ 
+    company_name: '', 
+    company_address: '', 
+    company_email: '', 
+    town: '',
+    contact: '' 
+  });
+  const [newSender, setNewSender] = useState({ 
+    company_name: '', 
+    company_address: '', 
+    company_email: '',
+    town: '',
+    contact: ''
+  });
   const [clientList, setClientList] = useState(clients);
   const [senderList, setSenderList] = useState(senders);
 
@@ -156,19 +168,36 @@ function QuoteForm({ clients, senders, onBack }) {
   useEffect(() => { setSenderList(senders); }, [senders]);
 
   useEffect(() => {
-    fetch('http://localhost:8000/quotes/next-number/', { method: 'POST' })
-      .then(res => res.json())
-      .then(data => setQuote(q => ({ ...q, quote_number: data.next_quote_number })));
+    const fetchQuoteNumber = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/quotes/next-number/', { 
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!res.ok) {
+          throw new Error('Failed to fetch quote number');
+        }
+        const data = await res.json();
+        setQuote(q => ({ ...q, quote_number: data.next_quote_number }));
+      } catch (err) {
+        console.error('Error fetching quote number:', err);
+        // Set a default quote number if fetch fails
+        setQuote(q => ({ ...q, quote_number: '1000' }));
+      }
+    };
+    fetchQuoteNumber();
   }, []);
 
   const handleClientSelect = (e) => {
     const clientId = e.target.value;
-    setQuote(prev => ({ ...prev, client: clientId ? parseInt(clientId) : null }));
+    setQuote(prev => ({ ...prev, client: parseInt(clientId) }));
   };
 
   const handleSenderSelect = (e) => {
     const senderId = e.target.value;
-    setQuote(prev => ({ ...prev, sender: senderId ? parseInt(senderId) : null }));
+    setQuote(prev => ({ ...prev, sender: parseInt(senderId) }));
   };
 
   const handleAddClient = async (e) => {
@@ -304,36 +333,29 @@ function QuoteForm({ clients, senders, onBack }) {
       <div className="card" style={{ marginBottom: 24 }}>
         <div style={{ marginBottom: 16 }}>
           <input name="quote_number" value={quote.quote_number} readOnly placeholder="Quote Number" style={{ width: 120, marginRight: 8 }} />
-          <select name="client" value={quote.client} onChange={handleClientSelect} style={{ width: 200, marginRight: 8 }}>
-            <option value="">Select Client</option>
-            {clientList.map(c => (
-              <option key={c.id} value={c.id}>{c.company_name}</option>
-            ))}
-          </select>
-          <button type="button" onClick={() => setShowClientForm(f => !f)} style={{ marginRight: 8 }}>Add New Client</button>
-          {showClientForm && (
-            <form onSubmit={handleAddClient} style={{ marginBottom: 8, background: '#f9f9f9', padding: 8, border: '1px solid #ccc' }}>
-              <input required placeholder="Company Name" value={newClient.company_name} onChange={e => setNewClient(n => ({ ...n, company_name: e.target.value }))} style={{ marginRight: 8 }} />
-              <input required placeholder="Address" value={newClient.company_address} onChange={e => setNewClient(n => ({ ...n, company_address: e.target.value }))} style={{ marginRight: 8 }} />
-              <input required placeholder="Email" value={newClient.company_email} onChange={e => setNewClient(n => ({ ...n, company_email: e.target.value }))} style={{ marginRight: 8 }} />
-              <button type="submit">Save</button>
-            </form>
-          )}
-          <select name="sender" value={quote.sender} onChange={handleSenderSelect} style={{ width: 200, marginRight: 8 }}>
-            <option value="">Select Sender</option>
-            {senderList.map(s => (
-              <option key={s.id} value={s.id}>{s.company_name}</option>
-            ))}
-          </select>
-          <button type="button" onClick={() => setShowSenderForm(f => !f)}>Add New Sender</button>
-          {showSenderForm && (
-            <form onSubmit={handleAddSender} style={{ marginBottom: 8, background: '#f9f9f9', padding: 8, border: '1px solid #ccc' }}>
-              <input required placeholder="Company Name" value={newSender.company_name} onChange={e => setNewSender(n => ({ ...n, company_name: e.target.value }))} style={{ marginRight: 8 }} />
-              <input required placeholder="Address" value={newSender.company_address} onChange={e => setNewSender(n => ({ ...n, company_address: e.target.value }))} style={{ marginRight: 8 }} />
-              <input required placeholder="Email" value={newSender.company_email} onChange={e => setNewSender(n => ({ ...n, company_email: e.target.value }))} style={{ marginRight: 8 }} />
-              <button type="submit">Save</button>
-            </form>
-          )}
+          <div className="form-row">
+            <div className="form-col">
+              <label>Client:</label>
+              <select value={quote.client || ''} onChange={handleClientSelect}>
+                <option value="">Select Client</option>
+                {clientList.map(c => (
+                  <option key={c.id} value={c.id}>{c.company_name}</option>
+                ))}
+              </select>
+              <button type="button" onClick={() => setShowClientForm(true)}>Add New Client</button>
+            </div>
+
+            <div className="form-col">
+              <label>Sender:</label>
+              <select value={quote.sender || ''} onChange={handleSenderSelect}>
+                <option value="">Select Sender</option>
+                {senderList.map(s => (
+                  <option key={s.id} value={s.id}>{s.company_name}</option>
+                ))}
+              </select>
+              <button type="button" onClick={() => setShowSenderForm(true)}>Add New Sender</button>
+            </div>
+          </div>
         </div>
         <h3 style={{ color: '#1976d2', marginTop: 24 }}>Parts</h3>
         {quote.parts.map((part, idx) => (
@@ -353,6 +375,122 @@ function QuoteForm({ clients, senders, onBack }) {
           <pre style={{ background: '#f4f7fb', borderRadius: 8, padding: 12, marginTop: 16, fontSize: 13, color: '#374151', overflowX: 'auto' }}>{JSON.stringify(quote, null, 2)}</pre>
         </div>
       </div>
+
+      {/* Client Form Modal */}
+      {showClientForm && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Add New Client</h3>
+            <form onSubmit={handleAddClient}>
+              <div className="form-row">
+                <label>Company Name:</label>
+                <input
+                  type="text"
+                  value={newClient.company_name}
+                  onChange={e => setNewClient(prev => ({ ...prev, company_name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="form-row">
+                <label>Address:</label>
+                <input
+                  type="text"
+                  value={newClient.company_address}
+                  onChange={e => setNewClient(prev => ({ ...prev, company_address: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="form-row">
+                <label>Town:</label>
+                <input
+                  type="text"
+                  value={newClient.town}
+                  onChange={e => setNewClient(prev => ({ ...prev, town: e.target.value }))}
+                />
+              </div>
+              <div className="form-row">
+                <label>Contact Person:</label>
+                <input
+                  type="text"
+                  value={newClient.contact}
+                  onChange={e => setNewClient(prev => ({ ...prev, contact: e.target.value }))}
+                />
+              </div>
+              <div className="form-row">
+                <label>Email:</label>
+                <input
+                  type="email"
+                  value={newClient.company_email}
+                  onChange={e => setNewClient(prev => ({ ...prev, company_email: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="form-buttons">
+                <button type="submit">Add Client</button>
+                <button type="button" onClick={() => setShowClientForm(false)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Sender Form Modal */}
+      {showSenderForm && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Add New Sender</h3>
+            <form onSubmit={handleAddSender}>
+              <div className="form-row">
+                <label>Company Name:</label>
+                <input
+                  type="text"
+                  value={newSender.company_name}
+                  onChange={e => setNewSender(prev => ({ ...prev, company_name: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="form-row">
+                <label>Address:</label>
+                <input
+                  type="text"
+                  value={newSender.company_address}
+                  onChange={e => setNewSender(prev => ({ ...prev, company_address: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="form-row">
+                <label>Town:</label>
+                <input
+                  type="text"
+                  value={newSender.town}
+                  onChange={e => setNewSender(prev => ({ ...prev, town: e.target.value }))}
+                />
+              </div>
+              <div className="form-row">
+                <label>Contact Person:</label>
+                <input
+                  type="text"
+                  value={newSender.contact}
+                  onChange={e => setNewSender(prev => ({ ...prev, contact: e.target.value }))}
+                />
+              </div>
+              <div className="form-row">
+                <label>Email:</label>
+                <input
+                  type="email"
+                  value={newSender.company_email}
+                  onChange={e => setNewSender(prev => ({ ...prev, company_email: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="form-buttons">
+                <button type="submit">Add Sender</button>
+                <button type="button" onClick={() => setShowSenderForm(false)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
